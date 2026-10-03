@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple IoT World - ESP8266 Smart Dashboard</title>
+  <meta name="description" content="Simple IoT World - Smart Web & IoT Dashboard for ESP8266, DHT11, 16x2 LCD, and Actuators. Built for Department of ETC, SB Jain, Nagpur.">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              300: '#6ee7b7',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js for high performance graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-zinc-900 to-emerald-950 text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+  <!-- ============================================== -->
+  <!-- NAVIGATION / HEADER                            -->
+  <!-- ============================================== -->
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-slate-900/80 dark:bg-slate-900/85 border-b border-emerald-500/20 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Logo and App Name -->
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-green-400 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+            <i class="fa-solid fa-microchip text-white text-2xl"></i>
+          </div>
+          <div>
+            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-green-200 bg-clip-text text-transparent">
+              Simple IoT World
+            </h1>
+            <p class="text-xs text-emerald-400/80 font-medium hidden sm:block">
+              ESP8266 Smart Station & Actuator Controller
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Header Items -->
+        <div class="flex items-center gap-2 sm:gap-4">
+          
+          <!-- Device Status Badge -->
+          <div id="deviceStatusContainer" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 shadow-sm" title="ESP8266 Hardware Status">
+            <span class="relative flex h-3 w-3">
+              <span id="deviceStatusPing" class="ping-indicator absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span id="deviceStatusDot" class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span id="deviceStatusText" class="text-xs font-bold tracking-wider text-emerald-400 uppercase">
+              ONLINE
+            </span>
+          </div>
+
+          <!-- Logged In User Greeting -->
+          <div id="userGreetingContainer" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <i class="fa-regular fa-circle-user text-emerald-400 text-lg"></i>
+            <span id="userGreetingText" class="text-sm font-semibold text-emerald-300">
+              Welcome vedika
+            </span>
+          </div>
+
+          <!-- Theme Toggle Button -->
+          <button id="themeToggleBtn" type="button" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-amber-400 dark:text-yellow-300 border border-slate-700 transition" aria-label="Toggle Theme" title="Toggle Light/Dark Theme">
+            <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+          </button>
+
+          <!-- Logout Button (Only visible when logged in) -->
+          <button id="logoutBtn" type="button" class="hidden items-center gap-2 px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition text-sm font-medium" title="Logout">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            <span class="hidden md:inline">Logout</span>
+          </button>
+
+          <!-- Login Link (Only visible when logged out) -->
+          <button id="navLoginBtn" type="button" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition text-sm shadow-md shadow-emerald-600/30">
+            <i class="fa-solid fa-user"></i>
+            <span>Login</span>
+          </button>
+
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================== -->
+  <!-- MAIN CONTENT AREA                              -->
+  <!-- ============================================== -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ============================================ -->
+    <!-- VIEW 1: AUTHENTICATION (LOGIN / REGISTER)    -->
+    <!-- ============================================ -->
+    <section id="authSection" class="hidden min-h-[75vh] flex items-center justify-center py-10">
+      <div class="w-full max-w-md bg-slate-800/90 dark:bg-slate-900/90 backdrop-blur-xl p-8 rounded-3xl border border-emerald-500/30 shadow-2xl shadow-emerald-950/50">
+        
+        <div class="text-center mb-6">
+          <div class="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 items-center justify-center shadow-lg shadow-emerald-500/30 mb-4">
+            <i class="fa-solid fa-fingerprint text-white text-3xl"></i>
+          </div>
+          <h2 id="authTitle" class="text-2xl font-bold text-white tracking-tight">Welcome Back</h2>
+          <p id="authSubtitle" class="text-sm text-slate-400 mt-1">Sign in to manage Simple IoT World</p>
+        </div>
+
+        <!-- Auth Tabs: Login vs Register -->
+        <div class="flex rounded-xl bg-slate-900/80 p-1.5 mb-6 border border-slate-700/60">
+          <button id="tabAuthLogin" type="button" class="w-1/2 py-2 text-sm font-semibold rounded-lg bg-emerald-600 text-white shadow-md transition">
+            Sign In
+          </button>
+          <button id="tabAuthRegister" type="button" class="w-1/2 py-2 text-sm font-semibold rounded-lg text-slate-400 hover:text-white transition">
+            Register
+          </button>
+        </div>
+
+        <!-- Auth Form -->
+        <form id="authForm" class="space-y-4">
+          <!-- Name Field (Register Only) -->
+          <div id="nameFieldGroup" class="hidden">
+            <label for="authName" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Full Name</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                <i class="fa-regular fa-user"></i>
+              </span>
+              <input id="authName" type="text" placeholder="e.g. vedika" class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/70 border border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-white placeholder-slate-500 text-sm outline-none transition">
+            </div>
+          </div>
+
+          <!-- Email Field -->
+          <div>
+            <label for="authEmail" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Email Address</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                <i class="fa-regular fa-envelope"></i>
+              </span>
+              <input id="authEmail" type="email" required placeholder="name@sbjain.edu" class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/70 border border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-white placeholder-slate-500 text-sm outline-none transition">
+            </div>
+          </div>
+
+          <!-- Password Field -->
+          <div>
+            <label for="authPassword" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Password</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                <i class="fa-solid fa-lock"></i>
+              </span>
+              <input id="authPassword" type="password" required placeholder="••••••••" class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/70 border border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-white placeholder-slate-500 text-sm outline-none transition">
+            </div>
+          </div>
+
+          <div id="authErrorMessage" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+          </div>
+
+          <button id="authSubmitBtn" type="submit" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-500 hover:from-emerald-500 hover:to-teal-500 text-white font-bold tracking-wide shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0">
+            Sign In to Dashboard
+          </button>
+        </form>
+
+        <!-- Quick Demo Credentials -->
+        <div class="mt-6 pt-5 border-t border-slate-700/60 text-center">
+          <p class="text-xs text-slate-400 mb-2">Default Demo Account:</p>
+          <button id="quickFillDemoBtn" type="button" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg border border-emerald-500/30 transition">
+            ⚡ Quick-fill: vedika@sbjain.edu / password123
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- VIEW 2: WEB DASHBOARD                          -->
+    <!-- ============================================ -->
+    <section id="dashboardSection" class="space-y-6">
+
+      <!-- Navigation Tabs & Toolbar -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-800/70 backdrop-blur-md p-2.5 rounded-2xl border border-emerald-500/20 shadow-md">
+        
+        <!-- 3 Dashboard Tabs -->
+        <div class="flex flex-wrap sm:flex-nowrap gap-1.5">
+          <!-- Tab 1 -->
+          <button id="tabBtn1" type="button" class="tab-button flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold text-sm transition bg-emerald-600 text-white shadow-md shadow-emerald-600/30">
+            <i class="fa-solid fa-chart-line text-base"></i>
+            <span>Monitoring & Records</span>
+          </button>
+          
+          <!-- Tab 2 -->
+          <button id="tabBtn2" type="button" class="tab-button flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-slate-700/60 transition">
+            <i class="fa-solid fa-desktop text-base"></i>
+            <span>Smart LCD 16x2</span>
+          </button>
+
+          <!-- Tab 3 -->
+          <button id="tabBtn3" type="button" class="tab-button flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-400 hover:text-white hover:bg-slate-700/60 transition">
+            <i class="fa-solid fa-lightbulb text-base"></i>
+            <span>LED Actuator</span>
+          </button>
+        </div>
+
+        <!-- Quick Actions & Status -->
+        <div class="flex items-center gap-2 self-end md:self-auto">
+          <div class="hidden lg:flex items-center text-xs text-slate-400 font-mono bg-slate-900/60 px-3 py-2 rounded-xl border border-slate-700/60">
+            <i class="fa-regular fa-clock mr-1.5 text-emerald-400"></i>
+            <span>IST (Asia/Kolkata +5:30)</span>
+          </div>
+
+          <button id="simulateReadingBtn" type="button" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition" title="Add a realistic reading to test table and graphs">
+            <i class="fa-solid fa-vial"></i>
+            <span>Simulate Sensor</span>
+          </button>
+
+          <button id="refreshDataBtn" type="button" class="p-2 rounded-xl bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white transition" title="Refresh Live Data">
+            <i class="fa-solid fa-rotate text-sm"></i>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ============================================ -->
+      <!-- TAB 1 CONTENT: MONITORING & RECORDS          -->
+      <!-- ============================================ -->
+      <div id="tabContent1" class="space-y-6">
+
+        <!-- SECTION 1: METRICS & CHARTS -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Current Temperature Card with Radial Gauge -->
+          <div class="lg:col-span-6 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl p-6 rounded-3xl border border-emerald-500/20 shadow-xl relative overflow-hidden group">
+            <div class="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all"></div>
+            
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-rose-500/20">
+                  <i class="fa-solid fa-temperature-three-quarters text-lg"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Temperature</h3>
+                  <span class="text-xs text-emerald-400 font-medium">DHT11 Sensor (Pin D5)</span>
+                </div>
+              </div>
+              <span id="tempStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                Warm
+              </span>
+            </div>
+
+            <!-- Gauge and Numbers -->
+            <div class="flex flex-col sm:flex-row items-center justify-around gap-4 my-2">
+              <!-- Radial SVG Gauge -->
+              <div class="relative w-36 h-36 flex items-center justify-center">
+                <svg class="gauge-svg w-36 h-36" viewBox="0 0 120 120">
+                  <circle class="gauge-circle-bg" cx="60" cy="60" r="50"></circle>
+                  <circle id="tempGaugeCircle" class="gauge-circle-progress" cx="60" cy="60" r="50" stroke="#f59e0b" stroke-dasharray="314.159" stroke-dashoffset="100"></circle>
+                </svg>
+                <div class="absolute flex flex-col items-center justify-center text-center">
+                  <span id="tempGaugeValue" class="text-3xl font-extrabold text-white tracking-tight">34.0</span>
+                  <span class="text-xs font-bold text-slate-400">°C</span>
+                </div>
+              </div>
+
+              <!-- Metrics detail -->
+              <div class="flex flex-col justify-center gap-2 w-full sm:w-1/2">
+                <div class="flex justify-between items-baseline">
+                  <span class="text-xs text-slate-400 font-medium">Range: 0°C – 50°C</span>
+                  <span id="tempPercentageText" class="text-xs font-bold text-emerald-400">68%</span>
+                </div>
+                
+                <!-- Seek Bar -->
+                <div class="gradient-seek-bar">
+                  <div id="tempSeekBar" class="gradient-seek-bar-fill bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500" style="width: 68%;"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-700/50 text-xs">
+                  <div>
+                    <span class="text-slate-400 block">Min Observed</span>
+                    <span id="tempMinVal" class="font-bold text-slate-200">28.0 °C</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-400 block">Max Observed</span>
+                    <span id="tempMaxVal" class="font-bold text-slate-200">36.5 °C</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Current Humidity Card with Radial Gauge -->
+          <div class="lg:col-span-6 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl p-6 rounded-3xl border border-emerald-500/20 shadow-xl relative overflow-hidden group">
+            <div class="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-teal-500/10 blur-2xl pointer-events-none group-hover:bg-teal-500/20 transition-all"></div>
+            
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20">
+                  <i class="fa-solid fa-droplet text-lg"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Humidity</h3>
+                  <span class="text-xs text-teal-400 font-medium">Relative Humidity (%)</span>
+                </div>
+              </div>
+              <span id="humStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                Comfortable
+              </span>
+            </div>
+
+            <!-- Gauge and Numbers -->
+            <div class="flex flex-col sm:flex-row items-center justify-around gap-4 my-2">
+              <!-- Radial SVG Gauge -->
+              <div class="relative w-36 h-36 flex items-center justify-center">
+                <svg class="gauge-svg w-36 h-36" viewBox="0 0 120 120">
+                  <circle class="gauge-circle-bg" cx="60" cy="60" r="50"></circle>
+                  <circle id="humGaugeCircle" class="gauge-circle-progress" cx="60" cy="60" r="50" stroke="#06b6d4" stroke-dasharray="314.159" stroke-dashoffset="157"></circle>
+                </svg>
+                <div class="absolute flex flex-col items-center justify-center text-center">
+                  <span id="humGaugeValue" class="text-3xl font-extrabold text-white tracking-tight">50</span>
+                  <span class="text-xs font-bold text-slate-400">%</span>
+                </div>
+              </div>
+
+              <!-- Metrics detail -->
+              <div class="flex flex-col justify-center gap-2 w-full sm:w-1/2">
+                <div class="flex justify-between items-baseline">
+                  <span class="text-xs text-slate-400 font-medium">Range: 20% – 90%</span>
+                  <span id="humPercentageText" class="text-xs font-bold text-cyan-400">50%</span>
+                </div>
+                
+                <!-- Seek Bar -->
+                <div class="gradient-seek-bar">
+                  <div id="humSeekBar" class="gradient-seek-bar-fill bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400" style="width: 50%;"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-700/50 text-xs">
+                  <div>
+                    <span class="text-slate-400 block">Min Observed</span>
+                    <span id="humMinVal" class="font-bold text-slate-200">42 %</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-400 block">Max Observed</span>
+                    <span id="humMaxVal" class="font-bold text-slate-200">62 %</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- GRAPHS: TEMPERATURE & HUMIDITY -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Temperature Line Graph -->
+          <div class="bg-slate-800/80 backdrop-blur-xl p-6 rounded-3xl border border-emerald-500/20 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+                <h4 class="font-bold text-sm tracking-wide text-slate-200">Temperature Trend (°C)</h4>
+              </div>
+              <span class="text-xs text-slate-400 font-mono">Live updates</span>
+            </div>
+            <div class="h-64">
+              <canvas id="tempChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Humidity Line Graph -->
+          <div class="bg-slate-800/80 backdrop-blur-xl p-6 rounded-3xl border border-emerald-500/20 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-cyan-400"></span>
+                <h4 class="font-bold text-sm tracking-wide text-slate-200">Humidity Trend (%)</h4>
+              </div>
+              <span class="text-xs text-slate-400 font-mono">Live updates</span>
+            </div>
+            <div class="h-64">
+              <canvas id="humChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SECTION 2: ALL SAVED RECORDS TABLE (WITH PAGINATION) -->
+        <div class="bg-slate-800/80 backdrop-blur-xl rounded-3xl border border-emerald-500/20 shadow-xl overflow-hidden">
+          
+          <!-- Table Header / Toolbar -->
+          <div class="p-6 border-b border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-database text-emerald-400"></i>
+                Saved Records
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">
+                All sensor telemetry stored in Simple JSON database • Timezone: Asia/Kolkata +5:30
+              </p>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <label for="recordsPerPage" class="text-xs text-slate-400 font-medium">Show</label>
+              <select id="recordsPerPage" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                <option value="5">5 rows</option>
+                <option value="10" selected>10 rows</option>
+                <option value="20">20 rows</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-700/80 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <th class="py-4 px-6">#</th>
+                  <th class="py-4 px-6">Temperature</th>
+                  <th class="py-4 px-6">Humidity</th>
+                  <th class="py-4 px-6">Time (IST)</th>
+                  <th class="py-4 px-6">Date</th>
+                  <th class="py-4 px-6 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="recordsTableBody" class="divide-y divide-slate-700/50 text-sm font-medium text-slate-200">
+                <!-- Rows injected dynamically by app.js -->
+                <tr>
+                  <td colspan="6" class="py-8 text-center text-slate-400">
+                    <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading records...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="p-4 sm:p-6 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span id="paginationInfo" class="text-xs text-slate-400">
+              Showing records 1 to 10 of 25
+            </span>
+
+            <div class="flex items-center gap-2">
+              <button id="prevPageBtn" type="button" class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:pointer-events-none transition">
+                <i class="fa-solid fa-chevron-left mr-1"></i> Prev
+              </button>
+              
+              <div id="paginationNumbers" class="flex items-center gap-1.5">
+                <!-- Page buttons injected by app.js -->
+              </div>
+
+              <button id="nextPageBtn" type="button" class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:pointer-events-none transition">
+                Next <i class="fa-solid fa-chevron-right ml-1"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ============================================ -->
+      <!-- TAB 2 CONTENT: SMART LCD 16x2 DISPLAY        -->
+      <!-- ============================================ -->
+      <div id="tabContent2" class="hidden space-y-6">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- LCD Inputs Form -->
+          <div class="lg:col-span-6 bg-slate-800/80 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-emerald-500/20 shadow-xl space-y-6">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 mb-3">
+                <i class="fa-solid fa-tv"></i> LCD 16x2 I2C @ 0x27 (Pins D1 & D2)
+              </div>
+              <h3 class="text-xl font-bold text-white tracking-tight">Smart Display Controls</h3>
+              <p class="text-xs text-slate-400 mt-1">
+                Send custom messages to the 16x2 LCD display on your ESP8266 in real time.
+              </p>
+            </div>
+
+            <form id="lcdForm" class="space-y-5">
+              
+              <!-- Field 1 -->
+              <div>
+                <div class="flex justify-between items-center mb-1.5">
+                  <label for="lcdLine1Input" class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Row 1 (Max 16 Characters)
+                  </label>
+                  <span id="charCount1" class="text-xs font-mono text-emerald-400">0 / 16</span>
+                </div>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-mono text-xs">R1</span>
+                  <input id="lcdLine1Input" type="text" maxlength="16" placeholder="SMART DISPLAY" class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-mono text-sm text-white placeholder-slate-600 outline-none transition uppercase">
+                </div>
+              </div>
+
+              <!-- Field 2 -->
+              <div>
+                <div class="flex justify-between items-center mb-1.5">
+                  <label for="lcdLine2Input" class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Row 2 (Max 16 Characters)
+                  </label>
+                  <span id="charCount2" class="text-xs font-mono text-emerald-400">0 / 16</span>
+                </div>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-mono text-xs">R2</span>
+                  <input id="lcdLine2Input" type="text" maxlength="16" placeholder="MyData" class="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-mono text-sm text-white placeholder-slate-600 outline-none transition uppercase">
+                </div>
+              </div>
+
+              <!-- Save Button -->
+              <button id="saveLcdBtn" type="submit" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-500 hover:from-emerald-500 hover:to-teal-500 text-white font-bold tracking-wide shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Save & Transmit to LCD</span>
+              </button>
+
+            </form>
+
+            <!-- Quick LCD Presets -->
+            <div class="pt-4 border-t border-slate-700/60">
+              <span class="text-xs text-slate-400 block mb-2 font-semibold">Quick Presets:</span>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="preset-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700" data-line1="SMART DISPLAY" data-line2="MyData">Default</button>
+                <button type="button" class="preset-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700" data-line1="WELCOME TO" data-line2="IOT WORLD">Welcome</button>
+                <button type="button" class="preset-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700" data-line1="DEPT OF ETC" data-line2="SB JAIN NAGPUR">SB Jain ETC</button>
+                <button type="button" class="preset-btn px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700" data-line1="SYSTEM ONLINE" data-line2="STATUS OK">Status OK</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 16x2 LCD Physical Display Simulation -->
+          <div class="lg:col-span-6 bg-slate-800/80 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-emerald-500/20 shadow-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="font-bold text-sm uppercase tracking-wider text-slate-300">
+                  <i class="fa-solid fa-eye text-emerald-400 mr-2"></i>
+                  Live 16x2 Display Preview
+                </h4>
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span class="text-xs text-slate-400 font-mono">HD44780 16x2 I2C</span>
+                </div>
+              </div>
+
+              <!-- LCD Physical Frame -->
+              <div class="lcd-screen-container my-4">
+                <div class="flex items-center justify-between text-[10px] text-zinc-400 font-mono mb-1.5 px-1 opacity-70">
+                  <span>PIN 1-16 (I2C 0x27)</span>
+                  <span>CONTRAST: MAX</span>
+                </div>
+                <div class="lcd-screen-inner">
+                  <div id="lcdPreviewRow1" class="lcd-row">SMART DISPLAY   </div>
+                  <div id="lcdPreviewRow2" class="lcd-row">MyData          </div>
+                </div>
+                <div class="flex justify-between items-center text-[10px] text-zinc-500 font-mono mt-1.5 px-1">
+                  <span>ROW 1: 16 CHARS</span>
+                  <span>ROW 2: 16 CHARS</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notice / ESP8266 Cycle Explanation -->
+            <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-700/60 text-xs text-slate-300 space-y-2">
+              <div class="font-bold text-emerald-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-info"></i> LCD Display Sequence in ESP8266:
+              </div>
+              <ul class="list-disc list-inside space-y-1 text-slate-400">
+                <li><span class="text-slate-300 font-medium">Temperature:</span> R1: TEMPERATURE, R2: xx 'C (2s)</li>
+                <li><span class="text-slate-300 font-medium">Humidity:</span> R1: HUMIDITY, R2: xx % (2s)</li>
+                <li><span class="text-emerald-300 font-semibold">Smart Display:</span> R1: [Field 1], R2: [Field 2] (2s)</li>
+                <li><span class="text-slate-300 font-medium">LED Status:</span> R1: LED STATUS, R2: ON/OFF (2s)</li>
+              </ul>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ============================================ -->
+      <!-- TAB 3 CONTENT: LED ACTUATOR CONTROL          -->
+      <!-- ============================================ -->
+      <div id="tabContent3" class="hidden space-y-6">
+        
+        <div class="max-w-2xl mx-auto bg-slate-800/80 backdrop-blur-xl p-8 sm:p-12 rounded-3xl border border-emerald-500/20 shadow-2xl text-center">
+          
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 mb-6">
+            <i class="fa-solid fa-bolt"></i> Hardware Actuator: Pin D3 (GPIO 0)
+          </div>
+
+          <h3 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-2">
+            Innovative LED Actuator Switch
+          </h3>
+          <p class="text-sm text-slate-400 max-w-md mx-auto mb-10">
+            Control the hardware LED connected to NodeMCU Pin D3 in real time. The state is instantly synced with the cloud and fetched by ESP8266.
+          </p>
+
+          <!-- Glowing 3D Neon Bulb Graphic -->
+          <div class="led-switch-container">
+            <div id="neonLedBulb" class="neon-led-bulb"></div>
+            
+            <div class="mb-8">
+              <span id="ledStatusBadge" class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm tracking-wider uppercase bg-slate-700/60 text-slate-300 border border-slate-600">
+                <i class="fa-solid fa-power-off"></i>
+                <span id="ledStatusText">LED is OFF</span>
+              </span>
+            </div>
+
+            <!-- Innovative 3D Push Switch -->
+            <button id="ledToggleBtn" type="button" class="tactile-power-btn btn-off" aria-label="Toggle LED">
+              <i id="ledBtnIcon" class="fa-solid fa-power-off mr-3 text-xl"></i>
+              <span id="ledBtnText">TURN LED ON</span>
+            </button>
+          </div>
+
+          <!-- Technical Pinout helper -->
+          <div class="mt-12 pt-8 border-t border-slate-700/60 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/40">
+              <span class="text-slate-400 block font-medium">Microcontroller</span>
+              <span class="font-bold text-emerald-400">NodeMCU ESP8266</span>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/40">
+              <span class="text-slate-400 block font-medium">Actuator Pin</span>
+              <span class="font-bold text-emerald-400">Pin D3 (GPIO 0)</span>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/40">
+              <span class="text-slate-400 block font-medium">Sync Latency</span>
+              <span class="font-bold text-emerald-400">Live Cloud Sync</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- FOOTER                                         -->
+  <!-- ============================================== -->
+  <footer class="mt-auto border-t border-emerald-500/20 bg-slate-900/90 backdrop-blur-md py-6 text-center text-xs text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <p class="font-medium tracking-wide">
+        Developed with <span class="pulse-heart text-base px-1"><i class="fa-solid fa-heart"></i></span> by <span class="font-bold text-emerald-400">vedika and Team</span>. Department of ETC, SB Jain, Nagpur
+      </p>
+      <p class="text-[11px] text-slate-400 mt-1 font-mono">
+        Simple IoT World • ESP8266 NodeMCU • Render Deployable Web Service
+      </p>
+    </div>
+  </footer>
+
+  <!-- ============================================== -->
+  <!-- TOAST NOTIFICATION CONTAINER                   -->
+  <!-- ============================================== -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full"></div>
+
+  <!-- Main Application Logic Script -->
+  <script src="js/app.js"></script>
+</body>
+</html>

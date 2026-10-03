@@ -1,0 +1,27 @@
+{
+  "name": "simple-iot-world",
+  "version": "1.0.0",
+  "description": "Simple IoT World - IoT + Web Application for ESP8266, DHT11, 16x2 LCD & LED",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "iot",
+    "esp8266",
+    "express",
+    "render",
+    "dht11",
+    "lcd16x2"
+  ],
+  "author": "vedika and Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
